@@ -13,6 +13,3 @@ storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 tests
-Dockerfile
-docker
-.dockerignore

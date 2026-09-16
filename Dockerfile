@@ -1,17 +1,5 @@
 # -----------------------------------------------------------
-# Stage 1: Build Frontend Assets
-# -----------------------------------------------------------
-FROM node:20-alpine AS frontend
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-RUN npm run build
-
-# -----------------------------------------------------------
-# Stage 2: Production PHP + Nginx Environment
+# Production PHP + Nginx Environment
 # -----------------------------------------------------------
 FROM php:8.2-fpm-bookworm AS production
 
@@ -30,7 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /etc/nginx/sites-enabled/default \
+    && mkdir -p /etc/nginx/templates /etc/nginx/conf.d
 
 # Install PHP extensions using the official extension installer
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
@@ -46,11 +36,8 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
-# Copy application source code
+# Copy application source code (includes pre-built public/build)
 COPY . .
-
-# Copy built frontend assets from Stage 1
-COPY --from=frontend /app/public/build ./public/build
 
 # Finish Composer installation and dump optimized autoloader
 RUN composer dump-autoload --optimize --no-dev
