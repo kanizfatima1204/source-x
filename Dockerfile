@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install PHP extensions using the official extension installer
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions pdo_mysql bcmath opcache zip pcntl intl
+RUN install-php-extensions pdo_mysql pdo_sqlite bcmath opcache zip pcntl intl
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
