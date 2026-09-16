@@ -1,0 +1,258 @@
+<?php
+
+namespace App\Services\Analytics;
+
+use App\Models\BuyerRequest;
+use App\Models\Source;
+use App\Models\User;
+use App\Notifications\OperationalAlertNotification;
+use Illuminate\Support\Collection;
+
+class OperationalNotificationService
+{
+    public function generate(): int
+    {
+        $admins = User::query()
+            ->where('role', 'admin')
+            ->get();
+
+        if ($admins->isEmpty()) {
+            return 0;
+        }
+
+        $alerts = $this->detectAlerts();
+
+        $created = 0;
+
+        foreach ($alerts as $alert) {
+            foreach ($admins as $admin) {
+                if (
+                    $this->alreadyNotified(
+                        $admin,
+                        $alert['deduplication_key']
+                    )
+                ) {
+                    continue;
+                }
+
+                $admin->notify(
+                    new OperationalAlertNotification(
+                        type: $alert['type'],
+                        severity: $alert['severity'],
+                        title: $alert['title'],
+                        message: $alert['message'],
+                        referenceCode: $alert['reference_code'] ?? null,
+                        url: $alert['url'] ?? null,
+                        deduplicationKey: $alert['deduplication_key'],
+                    )
+                );
+
+                $created++;
+            }
+        }
+
+        return $created;
+    }
+
+    public function unread(User $admin): Collection
+    {
+        return $admin
+            ->unreadNotifications()
+            ->latest()
+            ->limit(10)
+            ->get();
+    }
+
+    public function all(User $admin, int $limit = 50): Collection
+    {
+        return $admin
+            ->notifications()
+            ->latest()
+            ->limit($limit)
+            ->get();
+    }
+
+    private function detectAlerts(): Collection
+    {
+        $alerts = collect();
+
+        $sources = Source::query()
+            ->with([
+                'latestVerification',
+                'performance',
+                'products',
+            ])
+            ->get();
+
+        foreach ($sources as $source) {
+            $this->detectVerificationAlert(
+                $alerts,
+                $source
+            );
+
+            $this->detectAvailabilityAlert(
+                $alerts,
+                $source
+            );
+
+            $this->detectPerformanceAlert(
+                $alerts,
+                $source
+            );
+        }
+
+        $this->detectNoMatchRequests($alerts);
+
+        return $alerts;
+    }
+
+    private function detectVerificationAlert(
+        Collection $alerts,
+        Source $source
+    ): void {
+        if (
+            $source->latestVerification
+            && $source->latestVerification->status === 'verified'
+        ) {
+            return;
+        }
+
+        $reference = $source->reference_code;
+
+        $alerts->push([
+            'type' => 'verification',
+            'severity' => 'high',
+            'title' => 'Verification Required',
+            'message' => "{$reference} requires source verification.",
+            'reference_code' => $reference,
+            'url' => route(
+                'admin.sources.show',
+                $source
+            ),
+            'deduplication_key' => "verification:{$source->id}",
+        ]);
+    }
+
+    private function detectAvailabilityAlert(
+        Collection $alerts,
+        Source $source
+    ): void {
+        $totalProducts = $source
+            ->products
+            ->count();
+
+        if ($totalProducts === 0) {
+            return;
+        }
+
+        $availableProducts = $source
+            ->products
+            ->where('is_available', true)
+            ->count();
+
+        if ($availableProducts === 0) {
+            $severity = 'high';
+            $title = 'No Available Products';
+            $message = "{$source->reference_code} currently has no available products.";
+        } elseif (
+            ($availableProducts / $totalProducts) < 0.40
+        ) {
+            $severity = 'medium';
+            $title = 'Low Availability';
+            $message = "{$source->reference_code} has low product availability.";
+        } else {
+            return;
+        }
+
+        $alerts->push([
+            'type' => 'availability',
+            'severity' => $severity,
+            'title' => $title,
+            'message' => $message,
+            'reference_code' => $source->reference_code,
+            'url' => route(
+                'admin.sources.show',
+                $source
+            ),
+            'deduplication_key' =>
+                "availability:{$source->id}",
+        ]);
+    }
+
+    private function detectPerformanceAlert(
+        Collection $alerts,
+        Source $source
+    ): void {
+        $performanceScore = (int) (
+            $source->performance?->performance_score
+            ?? $source->performance_score
+        );
+
+        if ($performanceScore >= 60) {
+            return;
+        }
+
+        $alerts->push([
+            'type' => 'performance',
+            'severity' => 'high',
+            'title' => 'Low Source Performance',
+            'message' =>
+                "{$source->reference_code} has a performance score below 60.",
+            'reference_code' => $source->reference_code,
+            'url' => route(
+                'admin.sources.show',
+                $source
+            ),
+            'deduplication_key' =>
+                "performance:{$source->id}",
+        ]);
+    }
+
+    private function detectNoMatchRequests(
+        Collection $alerts
+    ): void {
+        $requests = BuyerRequest::query()
+            ->whereIn(
+                'status',
+                [
+                    'submitted',
+                    'matched',
+                ]
+            )
+            ->doesntHave('matches')
+            ->latest()
+            ->limit(20)
+            ->get();
+
+        foreach ($requests as $request) {
+            $alerts->push([
+                'type' => 'matching',
+                'severity' => 'medium',
+                'title' => 'Request Has No Match',
+                'message' =>
+                    "{$request->reference_code} does not currently have a matching source.",
+                'reference_code' =>
+                    $request->reference_code,
+                'url' => route(
+                    'admin.matches.show',
+                    $request
+                ),
+                'deduplication_key' =>
+                    "no-match:{$request->id}",
+            ]);
+        }
+    }
+
+    private function alreadyNotified(
+        User $admin,
+        string $key
+    ): bool {
+        return $admin
+            ->notifications()
+            ->where(
+                'data->deduplication_key',
+                $key
+            )
+            ->exists();
+    }
+}
