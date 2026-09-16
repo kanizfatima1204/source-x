@@ -57,66 +57,61 @@ const userMenuOpen = ref(false)
 const user = computed(() => page.props.auth?.user ?? null)
 
 const navigation = computed(() => {
-    const items = [
+    if (user.value?.role === 'admin') {
+        return [
+            {
+                label: 'Dashboard',
+                href: route('admin.dashboard'),
+                route: 'admin.dashboard',
+                icon: '▦',
+            },
+            {
+                label: 'Sources',
+                href: route('admin.sources.index'),
+                route: 'admin.sources.*',
+                icon: '◈',
+            },
+            {
+                label: 'Match Review',
+                href: route('admin.matches.index'),
+                route: 'admin.matches.*',
+                icon: '◎',
+            },
+            {
+                label: 'Audit Logs',
+                href: route('admin.audit-logs.index'),
+                route: 'admin.audit-logs.*',
+                icon: '◌',
+            },
+            {
+                label: 'Operations',
+                href: route('admin.operational.index'),
+                route: 'admin.operational',
+                icon: '◉',
+            },
+            {
+                label: 'Notifications',
+                href: route('admin.notifications.index'),
+                route: 'admin.notifications.*',
+                icon: '🔔',
+            },
+        ]
+    }
+
+    return [
         {
             label: 'Dashboard',
             href: route('dashboard'),
             route: 'dashboard',
             icon: '⌂',
         },
-    ]
-
-    if (user.value?.role === 'admin') {
-    items.push(
         {
-            label: 'Admin Dashboard',
-            href: route('admin.dashboard'),
-            route: 'admin.dashboard',
-            icon: '▦',
-        },
-        {
-            label: 'Sources',
-            href: route('admin.sources.index'),
-            route: 'admin.sources.*',
-            icon: '◈',
-        },
-        {
-            label: 'Match Review',
-            href: route('admin.matches.index'),
-            route: 'admin.matches.*',
-            icon: '◎',
-        },
-        {
-            label: 'Audit Logs',
-            href: route('admin.audit-logs.index'),
-            route: 'admin.audit-logs.*',
-            icon: '◌',
-        },
-        {
-            label: 'Operations',
-            href: route('admin.operational.index'),
-            route: 'admin.operational',
-            icon: '◉',
-        },
-        {
-            label: 'Notifications',
-            href: route('admin.notifications.index'),
-            route: 'admin.notifications.*',
-            icon: '🔔',
-        }
-    )
-}
-
-    if (user.value?.role === 'buyer') {
-        items.push({
             label: 'My Requests',
             href: route('buyer.requests.index'),
             route: 'buyer.requests.*',
             icon: '▤',
-        })
-    }
-
-    return items
+        },
+    ]
 })
 const isActive = (item) => {
     return route().current(item.route)

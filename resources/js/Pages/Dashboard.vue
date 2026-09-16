@@ -6,7 +6,11 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 const props = defineProps({
     stats: {
         type: Object,
-        required: true,
+        default: () => ({}),
+    },
+    metrics: {
+        type: Object,
+        default: () => ({}),
     },
     recentRequests: {
         type: Array,
@@ -18,25 +22,39 @@ const props = defineProps({
     },
 })
 
+const activeStats = computed(() => {
+    const s = props.stats && Object.keys(props.stats).length > 0 ? props.stats : (props.metrics || {})
+    return {
+        draft_requests: Number(s.draft_requests ?? 0),
+        submitted_requests: Number(s.submitted_requests ?? 0),
+        matched_requests: Number(s.matched_requests ?? 0),
+        cancelled_requests: Number(s.cancelled_requests ?? 0),
+        total_matches: Number(s.total_matches ?? 0),
+        approved_matches: Number(s.approved_matches ?? 0),
+        recommended_matches: Number(s.recommended_matches ?? 0),
+        verified_sources: Number(s.verified_sources ?? 0),
+    }
+})
+
 const pipeline = computed(() => [
     {
         label: 'Draft',
-        value: props.stats.draft_requests ?? 0,
+        value: activeStats.value.draft_requests,
         icon: '◌',
     },
     {
         label: 'Submitted',
-        value: props.stats.submitted_requests ?? 0,
+        value: activeStats.value.submitted_requests,
         icon: '↑',
     },
     {
         label: 'Matched',
-        value: props.stats.matched_requests ?? 0,
+        value: activeStats.value.matched_requests,
         icon: '✓',
     },
     {
         label: 'Cancelled',
-        value: props.stats.cancelled_requests ?? 0,
+        value: activeStats.value.cancelled_requests,
         icon: '×',
     },
 ])
@@ -135,7 +153,7 @@ const formatStatus = (status) => {
 
                         <div class="mt-3 flex items-end gap-3">
                             <p class="text-3xl font-bold text-slate-900 dark:text-white">
-                                {{ stats.total_matches }}
+                                {{ activeStats.total_matches }}
                             </p>
 
                             <span class="mb-1 text-xs text-slate-400">
@@ -147,15 +165,15 @@ const formatStatus = (status) => {
                             <div
                                 class="h-full rounded-full bg-violet-500"
                                 :style="{
-                                    width: stats.total_matches
-                                        ? `${Math.min((stats.approved_matches / stats.total_matches) * 100, 100)}%`
+                                    width: activeStats.total_matches
+                                        ? `${Math.min((activeStats.approved_matches / activeStats.total_matches) * 100, 100)}%`
                                         : '0%'
                                 }"
                             />
                         </div>
 
                         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            {{ stats.approved_matches }} approved match{{ stats.approved_matches === 1 ? '' : 'es' }}
+                            {{ activeStats.approved_matches }} approved match{{ activeStats.approved_matches === 1 ? '' : 'es' }}
                         </p>
                     </div>
 
@@ -165,7 +183,7 @@ const formatStatus = (status) => {
                         </p>
 
                         <p class="mt-3 text-3xl font-bold text-slate-900 dark:text-white">
-                            {{ stats.recommended_matches }}
+                            {{ activeStats.recommended_matches }}
                         </p>
 
                         <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -179,7 +197,7 @@ const formatStatus = (status) => {
                         </p>
 
                         <p class="mt-3 text-3xl font-bold text-slate-900 dark:text-white">
-                            {{ stats.verified_sources }}
+                            {{ activeStats.verified_sources }}
                         </p>
 
                         <p class="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
@@ -298,14 +316,14 @@ const formatStatus = (status) => {
 
                                 <div>
                                     <Link
-                                        :href="route('buyer.requests.show', recentRequests.find(r => r.reference_code === match.reference_code)?.id ?? '#')"
+                                        :href="route('buyer.requests.show', recentRequests.find(r => r.reference_code === (match.reference_code || match.request_reference))?.id ?? '#')"
                                         class="font-semibold text-slate-900 hover:text-violet-600 dark:text-white"
                                     >
-                                        {{ match.reference_code }}
+                                        {{ match.reference_code || match.request_reference || 'Match #' + match.id }}
                                     </Link>
 
                                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        Match generated {{ match.created_at }}
+                                        Match generated {{ match.created_at || 'recently' }}
                                     </p>
                                 </div>
                             </div>
@@ -313,7 +331,7 @@ const formatStatus = (status) => {
                             <div class="flex items-center gap-4">
                                 <div class="text-right">
                                     <p class="font-bold text-slate-900 dark:text-white">
-                                        {{ match.score.toFixed(1) }}
+                                        {{ Number(match.score ?? 0).toFixed(1) }}
                                     </p>
 
                                     <p class="text-xs text-slate-400">

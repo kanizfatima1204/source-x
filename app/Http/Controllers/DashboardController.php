@@ -8,15 +8,16 @@ use App\Models\Source;
 use App\Models\SourceVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): Response|RedirectResponse
     {
         if ($request->user()->isAdmin()) {
-            return $this->adminDashboard();
+            return redirect()->route('admin.dashboard');
         }
 
         return $this->buyerDashboard($request);
@@ -248,24 +249,26 @@ class DashboardController extends Controller
             ),
         ];
 
+        $metrics = [
+            'total_sources' => $totalSources,
+            'active_sources' => $activeSources,
+            'verified_sources' => $verifiedSources,
+            'total_requests' => $totalRequests,
+            'submitted_requests' => $submittedRequests,
+            'matched_requests' => $matchedRequests,
+            'total_matches' => $totalMatches,
+            'approved_matches' => $approvedMatches,
+            'rejected_matches' => $rejectedMatches,
+            'average_match_score' => $averageMatchScore,
+            'average_source_quality' => $averageSourceQuality,
+            'average_source_performance' =>
+                $averageSourcePerformance,
+        ];
+
         return Inertia::render('Dashboard', [
             'dashboardType' => 'admin',
-
-            'metrics' => [
-                'total_sources' => $totalSources,
-                'active_sources' => $activeSources,
-                'verified_sources' => $verifiedSources,
-                'total_requests' => $totalRequests,
-                'submitted_requests' => $submittedRequests,
-                'matched_requests' => $matchedRequests,
-                'total_matches' => $totalMatches,
-                'approved_matches' => $approvedMatches,
-                'rejected_matches' => $rejectedMatches,
-                'average_match_score' => $averageMatchScore,
-                'average_source_quality' => $averageSourceQuality,
-                'average_source_performance' =>
-                    $averageSourcePerformance,
-            ],
+            'stats' => $metrics,
+            'metrics' => $metrics,
 
             'requestFunnel' => $requestFunnel,
 
@@ -323,6 +326,18 @@ class DashboardController extends Controller
             ->where('status', 'approved')
             ->count();
 
+        $recommendedMatches = MatchResult::query()
+            ->whereIn('buyer_request_id', $requestIds)
+            ->where('status', 'recommended')
+            ->count();
+
+        $verifiedSources = Source::query()
+            ->where('status', 'active')
+            ->whereHas('latestVerification', function ($query) {
+                $query->where('status', 'verified');
+            })
+            ->count();
+
         $averageMatchScore = round(
             (float) (
                 MatchResult::query()
@@ -364,10 +379,12 @@ class DashboardController extends Controller
             ->limit(6)
             ->get()
             ->map(function (MatchResult $match) {
+                $ref = $match->buyerRequest?->reference_code ?? ('REQ-'.$match->buyer_request_id);
+
                 return [
                     'id' => $match->id,
-                    'request_reference' =>
-                        $match->buyerRequest?->reference_code,
+                    'reference_code' => $ref,
+                    'request_reference' => $ref,
                     'score' => (float) $match->total_score,
                     'rank' => (int) $match->rank,
                     'confidence' => $match->confidence,
@@ -377,26 +394,31 @@ class DashboardController extends Controller
                     'is_algorithm_selected' =>
                         (bool) $match->is_algorithm_selected,
                     'summary' => $match->summary,
+                    'created_at' => $match->created_at?->format(
+                        'M d, Y H:i'
+                    ) ?? 'Recently',
                 ];
             })
             ->values();
 
+        $statsData = [
+            'total_requests' => $totalRequests,
+            'draft_requests' => $draftRequests,
+            'submitted_requests' => $submittedRequests,
+            'matched_requests' => $matchedRequests,
+            'cancelled_requests' => $cancelledRequests,
+            'total_matches' => $totalMatches,
+            'approved_matches' => $approvedMatches,
+            'recommended_matches' => $recommendedMatches,
+            'verified_sources' => $verifiedSources,
+            'average_match_score' => $averageMatchScore,
+        ];
+
         return Inertia::render('Dashboard', [
             'dashboardType' => 'buyer',
-
-            'metrics' => [
-                'total_requests' => $totalRequests,
-                'draft_requests' => $draftRequests,
-                'submitted_requests' => $submittedRequests,
-                'matched_requests' => $matchedRequests,
-                'cancelled_requests' => $cancelledRequests,
-                'total_matches' => $totalMatches,
-                'approved_matches' => $approvedMatches,
-                'average_match_score' => $averageMatchScore,
-            ],
-
+            'stats' => $statsData,
+            'metrics' => $statsData,
             'recentRequests' => $recentRequests,
-
             'recentMatches' => $recentMatches,
         ]);
     }
