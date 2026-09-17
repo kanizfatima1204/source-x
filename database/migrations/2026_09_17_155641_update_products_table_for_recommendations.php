@@ -8,6 +8,18 @@ return new class extends Migration
 {
     public function up(): void
     {
+        try {
+            Schema::table('products', function (Blueprint $table) {
+                $table->dropIndex('products_category_id_is_active_index');
+            });
+        } catch (\Throwable) {}
+
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            try {
+                \Illuminate\Support\Facades\DB::statement('DROP INDEX IF EXISTS products_category_id_is_active_index');
+            } catch (\Throwable) {}
+        }
+
         Schema::table('products', function (Blueprint $table) {
             if (Schema::hasColumn('products', 'category_id')) {
                 try { $table->dropForeign(['category_id']); } catch (\Throwable) {}
@@ -57,9 +69,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->dropIndex(['category', 'location']);
-            $table->dropIndex(['budget_level', 'is_available']);
-            $table->dropIndex(['is_verified']);
+            try { $table->dropIndex(['category', 'location']); } catch (\Throwable) {}
+            try { $table->dropIndex(['budget_level', 'is_available']); } catch (\Throwable) {}
+            try { $table->dropIndex(['is_verified']); } catch (\Throwable) {}
 
             $table->dropColumn('popularity_score');
             $table->dropColumn('request_count');

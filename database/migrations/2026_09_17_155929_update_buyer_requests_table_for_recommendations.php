@@ -8,6 +8,27 @@ return new class extends Migration
 {
     public function up(): void
     {
+        try {
+            Schema::table('buyer_requests', function (Blueprint $table) {
+                $table->dropUnique('buyer_requests_reference_code_unique');
+            });
+        } catch (\Throwable) {}
+
+        try {
+            Schema::table('buyer_requests', function (Blueprint $table) {
+                $table->dropIndex('buyer_requests_user_id_status_index');
+            });
+        } catch (\Throwable) {}
+
+        if (\Illuminate\Support\Facades\DB::getDriverName() === 'sqlite') {
+            try {
+                \Illuminate\Support\Facades\DB::statement('DROP INDEX IF EXISTS buyer_requests_reference_code_unique');
+            } catch (\Throwable) {}
+            try {
+                \Illuminate\Support\Facades\DB::statement('DROP INDEX IF EXISTS buyer_requests_user_id_status_index');
+            } catch (\Throwable) {}
+        }
+
         Schema::table('buyer_requests', function (Blueprint $table) {
             $toDrop = array_filter([
                 Schema::hasColumn('buyer_requests', 'reference_code') ? 'reference_code' : null,
@@ -40,7 +61,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('buyer_requests', function (Blueprint $table) {
-            $table->dropIndex(['user_id', 'category']);
+            try { $table->dropIndex(['user_id', 'category']); } catch (\Throwable) {}
 
             $table->dropColumn('description');
             $table->dropColumn('budget_level');
