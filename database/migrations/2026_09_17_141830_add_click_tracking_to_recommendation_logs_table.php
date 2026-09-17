@@ -9,8 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('recommendation_logs', function (Blueprint $table) {
-            $table->boolean('clicked')->default(false)->after('source');
-            $table->timestamp('clicked_at')->nullable()->after('clicked');
+            if (! Schema::hasColumn('recommendation_logs', 'clicked')) {
+                $table->boolean('clicked')->default(false)->after('source');
+            }
+            if (! Schema::hasColumn('recommendation_logs', 'clicked_at')) {
+                $table->timestamp('clicked_at')->nullable()->after('clicked');
+            }
         });
     }
 

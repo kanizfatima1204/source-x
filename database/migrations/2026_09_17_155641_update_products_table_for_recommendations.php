@@ -9,24 +9,48 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->dropForeign(['category_id']);
-            $table->dropColumn('category_id');
-            $table->dropColumn('unit');
-            $table->dropColumn('is_active');
+            if (Schema::hasColumn('products', 'category_id')) {
+                try { $table->dropForeign(['category_id']); } catch (\Throwable) {}
+                $table->dropColumn('category_id');
+            }
+            if (Schema::hasColumn('products', 'unit')) {
+                $table->dropColumn('unit');
+            }
+            if (Schema::hasColumn('products', 'is_active')) {
+                $table->dropColumn('is_active');
+            }
 
-            $table->string('category')->after('slug');
-            $table->string('location')->after('category');
-            $table->decimal('price', 12, 2)->default(0)->after('location');
-            $table->enum('budget_level', ['low', 'medium', 'high'])->default('medium')->after('price');
-            $table->boolean('is_available')->default(true)->after('budget_level');
-            $table->boolean('is_verified')->default(false)->after('is_available');
-            $table->unsignedInteger('view_count')->default(0)->after('is_verified');
-            $table->unsignedInteger('request_count')->default(0)->after('view_count');
-            $table->unsignedInteger('popularity_score')->default(0)->after('request_count');
+            if (! Schema::hasColumn('products', 'category')) {
+                $table->string('category')->after('slug');
+            }
+            if (! Schema::hasColumn('products', 'location')) {
+                $table->string('location')->after('category');
+            }
+            if (! Schema::hasColumn('products', 'price')) {
+                $table->decimal('price', 12, 2)->default(0)->after('location');
+            }
+            if (! Schema::hasColumn('products', 'budget_level')) {
+                $table->enum('budget_level', ['low', 'medium', 'high'])->default('medium')->after('price');
+            }
+            if (! Schema::hasColumn('products', 'is_available')) {
+                $table->boolean('is_available')->default(true)->after('budget_level');
+            }
+            if (! Schema::hasColumn('products', 'is_verified')) {
+                $table->boolean('is_verified')->default(false)->after('is_available');
+            }
+            if (! Schema::hasColumn('products', 'view_count')) {
+                $table->unsignedInteger('view_count')->default(0)->after('is_verified');
+            }
+            if (! Schema::hasColumn('products', 'request_count')) {
+                $table->unsignedInteger('request_count')->default(0)->after('view_count');
+            }
+            if (! Schema::hasColumn('products', 'popularity_score')) {
+                $table->unsignedInteger('popularity_score')->default(0)->after('request_count');
+            }
 
-            $table->index(['category', 'location']);
-            $table->index(['budget_level', 'is_available']);
-            $table->index('is_verified');
+            try { $table->index(['category', 'location']); } catch (\Throwable) {}
+            try { $table->index(['budget_level', 'is_available']); } catch (\Throwable) {}
+            try { $table->index('is_verified'); } catch (\Throwable) {}
         });
     }
 

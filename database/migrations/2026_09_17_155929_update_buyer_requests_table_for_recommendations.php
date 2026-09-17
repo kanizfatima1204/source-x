@@ -9,20 +9,31 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('buyer_requests', function (Blueprint $table) {
-            $table->dropColumn('reference_code');
-            $table->dropColumn('min_budget');
-            $table->dropColumn('max_budget');
-            $table->dropColumn('quality_requirement');
-            $table->dropColumn('required_by');
-            $table->dropColumn('status');
-            $table->dropColumn('notes');
+            $toDrop = array_filter([
+                Schema::hasColumn('buyer_requests', 'reference_code') ? 'reference_code' : null,
+                Schema::hasColumn('buyer_requests', 'min_budget')     ? 'min_budget'     : null,
+                Schema::hasColumn('buyer_requests', 'max_budget')     ? 'max_budget'     : null,
+                Schema::hasColumn('buyer_requests', 'quality_requirement') ? 'quality_requirement' : null,
+                Schema::hasColumn('buyer_requests', 'required_by')   ? 'required_by'   : null,
+                Schema::hasColumn('buyer_requests', 'status')         ? 'status'         : null,
+                Schema::hasColumn('buyer_requests', 'notes')          ? 'notes'          : null,
+            ]);
+            if (! empty($toDrop)) {
+                $table->dropColumn(array_values($toDrop));
+            }
 
-            $table->string('category')->nullable()->after('user_id');
+            if (! Schema::hasColumn('buyer_requests', 'category')) {
+                $table->string('category')->nullable()->after('user_id');
+            }
             $table->string('location')->nullable()->change();
-            $table->enum('budget_level', ['low', 'medium', 'high'])->nullable()->after('location');
-            $table->text('description')->nullable()->after('budget_level');
+            if (! Schema::hasColumn('buyer_requests', 'budget_level')) {
+                $table->enum('budget_level', ['low', 'medium', 'high'])->nullable()->after('location');
+            }
+            if (! Schema::hasColumn('buyer_requests', 'description')) {
+                $table->text('description')->nullable()->after('budget_level');
+            }
 
-            $table->index(['user_id', 'category']);
+            try { $table->index(['user_id', 'category']); } catch (\Throwable) {}
         });
     }
 

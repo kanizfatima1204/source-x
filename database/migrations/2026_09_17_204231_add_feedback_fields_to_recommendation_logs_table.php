@@ -36,16 +36,25 @@ return new class extends Migration
                     ->after('clicked');
             }
 
-            $table->index('algorithm');
+            // Safely add the index — ignore if it already exists (MySQL safe)
+            try {
+                $table->index('algorithm');
+            } catch (\Throwable) {
+                // Index already exists — safe to ignore
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('recommendation_logs', function (Blueprint $table) {
-            $table->dropIndex([
-                'recommendation_logs_algorithm_index',
-            ]);
+            try {
+                $table->dropIndex([
+                    'recommendation_logs_algorithm_index',
+                ]);
+            } catch (\Throwable) {
+                // Index may not exist
+            }
 
             if (Schema::hasColumn(
                 'recommendation_logs',
