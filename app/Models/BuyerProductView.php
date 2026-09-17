@@ -5,23 +5,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class BuyerRequest extends Model
+class BuyerProductView extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'category',
-        'location',
-        'budget_level',
-        'description',
-        'request_count',
+        'product_id',
+        'view_count',
+        'last_viewed_at',
     ];
 
     protected $casts = [
-        'request_count' => 'integer',
+        'last_viewed_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -29,8 +26,8 @@ class BuyerRequest extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function items(): HasMany
+    public function product(): BelongsTo
     {
-        return $this->hasMany(BuyerRequestItem::class);
+        return $this->belongsTo(Product::class);
     }
 }

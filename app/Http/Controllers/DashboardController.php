@@ -8,6 +8,7 @@ use App\Models\Source;
 use App\Models\SourceVerification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -39,21 +40,24 @@ class DashboardController extends Controller
 
         $totalRequests = BuyerRequest::count();
 
-        $submittedRequests = BuyerRequest::query()
-            ->where('status', 'submitted')
-            ->count();
+        $hasStatus = Schema::hasColumn('buyer_requests', 'status');
+        $hasReferenceCode = Schema::hasColumn('buyer_requests', 'reference_code');
 
-        $matchedRequests = BuyerRequest::query()
-            ->where('status', 'matched')
-            ->count();
+        $submittedRequests = $hasStatus
+            ? BuyerRequest::query()->where('status', 'submitted')->count()
+            : $totalRequests;
 
-        $cancelledRequests = BuyerRequest::query()
-            ->where('status', 'cancelled')
-            ->count();
+        $matchedRequests = $hasStatus
+            ? BuyerRequest::query()->where('status', 'matched')->count()
+            : 0;
 
-        $draftRequests = BuyerRequest::query()
-            ->where('status', 'draft')
-            ->count();
+        $cancelledRequests = $hasStatus
+            ? BuyerRequest::query()->where('status', 'cancelled')->count()
+            : 0;
+
+        $draftRequests = $hasStatus
+            ? BuyerRequest::query()->where('status', 'draft')->count()
+            : 0;
 
         $totalMatches = MatchResult::count();
 
@@ -192,20 +196,18 @@ class DashboardController extends Controller
         $recentRequests = BuyerRequest::query()
             ->with([
                 'user:id,name,email',
-                'items.product:id,name',
             ])
-            ->withCount('items')
             ->latest()
             ->limit(8)
             ->get()
-            ->map(function (BuyerRequest $request) {
+            ->map(function (BuyerRequest $request) use ($hasReferenceCode, $hasStatus) {
                 return [
                     'id' => $request->id,
-                    'reference_code' => $request->reference_code,
+                    'reference_code' => $hasReferenceCode ? ($request->reference_code ?? 'REQ-'.$request->id) : ('REQ-'.$request->id),
                     'buyer_name' => $request->user?->name ?? 'Unknown',
-                    'location' => $request->location,
-                    'status' => $request->status,
-                    'items_count' => (int) $request->items_count,
+                    'location' => $request->location ?? 'N/A',
+                    'status' => $hasStatus ? ($request->status ?? 'submitted') : 'submitted',
+                    'items_count' => (int) ($request->items()->count()),
                     'created_at' => $request->created_at?->format(
                         'M d, Y H:i'
                     ),
@@ -213,19 +215,22 @@ class DashboardController extends Controller
             })
             ->values();
 
+        $matchRelation = $hasReferenceCode ? 'buyerRequest:id,reference_code' : 'buyerRequest:id';
+
         $recentMatches = MatchResult::query()
             ->with([
-                'buyerRequest:id,reference_code',
+                $matchRelation,
                 'source:id,reference_code,name',
             ])
             ->latest()
             ->limit(8)
             ->get()
             ->map(function (MatchResult $match) {
+                $ref = $match->buyerRequest?->getAttribute('reference_code') ?? ('REQ-'.$match->buyer_request_id);
+
                 return [
                     'id' => $match->id,
-                    'request_reference' =>
-                        $match->buyerRequest?->reference_code,
+                    'request_reference' => $ref,
                     'source_reference' =>
                         $match->source?->reference_code,
                     'source_name' =>
@@ -298,21 +303,24 @@ class DashboardController extends Controller
 
         $totalRequests = (clone $baseQuery)->count();
 
-        $draftRequests = (clone $baseQuery)
-            ->where('status', 'draft')
-            ->count();
+        $hasStatus = Schema::hasColumn('buyer_requests', 'status');
+        $hasReferenceCode = Schema::hasColumn('buyer_requests', 'reference_code');
 
-        $submittedRequests = (clone $baseQuery)
-            ->where('status', 'submitted')
-            ->count();
+        $draftRequests = $hasStatus
+            ? (clone $baseQuery)->where('status', 'draft')->count()
+            : 0;
 
-        $matchedRequests = (clone $baseQuery)
-            ->where('status', 'matched')
-            ->count();
+        $submittedRequests = $hasStatus
+            ? (clone $baseQuery)->where('status', 'submitted')->count()
+            : $totalRequests;
 
-        $cancelledRequests = (clone $baseQuery)
-            ->where('status', 'cancelled')
-            ->count();
+        $matchedRequests = $hasStatus
+            ? (clone $baseQuery)->where('status', 'matched')->count()
+            : 0;
+
+        $cancelledRequests = $hasStatus
+            ? (clone $baseQuery)->where('status', 'cancelled')->count()
+            : 0;
 
         $requestIds = (clone $baseQuery)
             ->pluck('id');
@@ -349,17 +357,16 @@ class DashboardController extends Controller
 
         $recentRequests = BuyerRequest::query()
             ->where('user_id', $userId)
-            ->withCount('items')
             ->latest()
             ->limit(6)
             ->get()
-            ->map(function (BuyerRequest $request) {
+            ->map(function (BuyerRequest $request) use ($hasReferenceCode, $hasStatus) {
                 return [
                     'id' => $request->id,
-                    'reference_code' => $request->reference_code,
-                    'location' => $request->location,
-                    'status' => $request->status,
-                    'items_count' => (int) $request->items_count,
+                    'reference_code' => $hasReferenceCode ? ($request->reference_code ?? 'REQ-'.$request->id) : ('REQ-'.$request->id),
+                    'location' => $request->location ?? 'N/A',
+                    'status' => $hasStatus ? ($request->status ?? 'submitted') : 'submitted',
+                    'items_count' => (int) ($request->items()->count()),
                     'created_at' => $request->created_at?->format(
                         'M d, Y H:i'
                     ),
@@ -367,10 +374,12 @@ class DashboardController extends Controller
             })
             ->values();
 
+        $matchRelation = $hasReferenceCode ? 'buyerRequest:id,reference_code' : 'buyerRequest:id';
+
         $recentMatches = MatchResult::query()
             ->whereIn('buyer_request_id', $requestIds)
             ->with([
-                'buyerRequest:id,reference_code',
+                $matchRelation,
             ])
             ->where('status', '!=', 'rejected')
             ->orderByDesc('is_admin_selected')
@@ -379,7 +388,7 @@ class DashboardController extends Controller
             ->limit(6)
             ->get()
             ->map(function (MatchResult $match) {
-                $ref = $match->buyerRequest?->reference_code ?? ('REQ-'.$match->buyer_request_id);
+                $ref = $match->buyerRequest?->getAttribute('reference_code') ?? ('REQ-'.$match->buyer_request_id);
 
                 return [
                     'id' => $match->id,

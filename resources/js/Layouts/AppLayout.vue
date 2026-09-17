@@ -1,12 +1,33 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import { Head, Link, usePage } from '@inertiajs/vue3'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import ToastContainer from '@/Components/UI/ToastContainer.vue'
 
 const page = usePage()
 
+const unreadNotifications = ref([])
+const unreadNotificationCount = ref(0)
+const notificationOpen = ref(false)
+const sidebarOpen = ref(false)
+const userMenuOpen = ref(false)
+
+const safeRoute = (name, params = undefined, fallback = '#') => {
+    try {
+        if (typeof route === 'function' && route().has(name)) {
+            return route(name, params)
+        }
+    } catch {
+        // Fallback gracefully
+    }
+    return fallback
+}
+
 const loadNotifications = async () => {
     try {
+        if (typeof route !== 'function' || !route().has('admin.notifications.unread')) {
+            return
+        }
+
         const response = await fetch(
             route('admin.notifications.unread'),
             {
@@ -51,8 +72,6 @@ onBeforeUnmount(() => {
         window.clearInterval(notificationTimer)
     }
 })
-const sidebarOpen = ref(false)
-const userMenuOpen = ref(false)
 
 const user = computed(() => page.props.auth?.user ?? null)
 
@@ -61,37 +80,37 @@ const navigation = computed(() => {
         return [
             {
                 label: 'Dashboard',
-                href: route('admin.dashboard'),
+                href: safeRoute('admin.dashboard', undefined, '/admin'),
                 route: 'admin.dashboard',
                 icon: '▦',
             },
             {
                 label: 'Sources',
-                href: route('admin.sources.index'),
+                href: safeRoute('admin.sources.index', undefined, '/admin/sources'),
                 route: 'admin.sources.*',
                 icon: '◈',
             },
             {
                 label: 'Match Review',
-                href: route('admin.matches.index'),
+                href: safeRoute('admin.matches.index', undefined, '/admin/matches'),
                 route: 'admin.matches.*',
                 icon: '◎',
             },
             {
                 label: 'Audit Logs',
-                href: route('admin.audit-logs.index'),
+                href: safeRoute('admin.audit-logs.index', undefined, '/admin/audit-logs'),
                 route: 'admin.audit-logs.*',
                 icon: '◌',
             },
             {
                 label: 'Operations',
-                href: route('admin.operational.index'),
+                href: safeRoute('admin.operational.index', undefined, '/admin/operational'),
                 route: 'admin.operational',
                 icon: '◉',
             },
             {
                 label: 'Notifications',
-                href: route('admin.notifications.index'),
+                href: safeRoute('admin.notifications.index', undefined, '/admin/notifications'),
                 route: 'admin.notifications.*',
                 icon: '🔔',
             },
@@ -101,20 +120,27 @@ const navigation = computed(() => {
     return [
         {
             label: 'Dashboard',
-            href: route('dashboard'),
+            href: safeRoute('dashboard', undefined, '/dashboard'),
             route: 'dashboard',
             icon: '⌂',
         },
         {
             label: 'My Requests',
-            href: route('buyer.requests.index'),
+            href: safeRoute('buyer.requests.index', undefined, '/buyer/requests'),
             route: 'buyer.requests.*',
             icon: '▤',
         },
     ]
 })
 const isActive = (item) => {
-    return route().current(item.route)
+    try {
+        if (typeof route === 'function' && route().has(item.route)) {
+            return route().current(item.route)
+        }
+    } catch {
+        // Fallback
+    }
+    return typeof window !== 'undefined' && window.location.pathname.startsWith(item.href)
 }
 
 const closeSidebar = () => {
@@ -123,11 +149,7 @@ const closeSidebar = () => {
 
 const logout = () => {
     userMenuOpen.value = false
-
-    window.axios.post(route('logout'))
-        .then(() => {
-            window.location.href = route('login')
-        })
+    router.post(safeRoute('logout', undefined, '/logout'))
 }
 
 const toggleTheme = () => {

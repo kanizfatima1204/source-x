@@ -22,6 +22,16 @@ const form = useForm({
     remember: false,
 });
 
+const fillDemo = (role) => {
+    if (role === 'admin') {
+        form.email = 'admin@source-x.test';
+        form.password = 'password';
+    } else {
+        form.email = 'buyer@source-x.test';
+        form.password = 'password';
+    }
+};
+
 const submit = () => {
     form.post(route('login'), {
         onFinish: () => form.reset('password'),
@@ -35,6 +45,35 @@ const submit = () => {
 
         <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
             {{ status }}
+        </div>
+
+        <!-- Demo Accounts Box -->
+        <div class="mb-6 rounded-lg border border-indigo-100 bg-indigo-50/80 p-3.5 text-xs">
+            <div class="flex items-center justify-between mb-2">
+                <span class="font-semibold text-indigo-900">Demo Login Accounts</span>
+                <span class="text-[11px] text-indigo-600">Click any card to auto-fill</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button
+                    type="button"
+                    @click="fillDemo('admin')"
+                    class="flex flex-col items-start rounded-md border border-indigo-200 bg-white p-2.5 text-left shadow-sm hover:border-indigo-400 hover:bg-indigo-50 transition"
+                >
+                    <span class="font-bold text-indigo-700">Admin Account</span>
+                    <span class="text-gray-700 font-mono text-[11px] mt-0.5">admin@source-x.test</span>
+                    <span class="text-gray-500 text-[11px]">Pass: <code class="bg-gray-100 px-1 py-0.5 rounded">password</code></span>
+                </button>
+
+                <button
+                    type="button"
+                    @click="fillDemo('buyer')"
+                    class="flex flex-col items-start rounded-md border border-emerald-200 bg-white p-2.5 text-left shadow-sm hover:border-emerald-400 hover:bg-emerald-50 transition"
+                >
+                    <span class="font-bold text-emerald-700">Buyer Account</span>
+                    <span class="text-gray-700 font-mono text-[11px] mt-0.5">buyer@source-x.test</span>
+                    <span class="text-gray-500 text-[11px]">Pass: <code class="bg-gray-100 px-1 py-0.5 rounded">password</code></span>
+                </button>
+            </div>
         </div>
 
         <form @submit.prevent="submit">
